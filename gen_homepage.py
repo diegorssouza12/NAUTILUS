@@ -20,9 +20,15 @@ def b64img(fname):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
+def b64video(fname):
+    path = os.path.join(base_dir, fname)
+    if not os.path.exists(path): return ""
+    print(f"Embedding video: {fname}...")
+    with open(path, "rb") as f:
+        return f"data:video/mp4;base64,{base64.b64encode(f.read()).decode()}"
+
 logo_b64 = b64img("logo nova_transparent.png") or b64img("logo nova.png")
-video_path_filename = "video_back.mp4"
-os.system(f'copy "{os.path.join(base_dir, video_path_filename)}" "{os.path.dirname(out_path)}"')
+video_b64_uri = b64video("video_back.mp4")
 
 # --- TEAM CARDS ---
 LI_SVG = '<svg viewBox="0 0 24 24" fill="white" width="17" height="17"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>'
@@ -178,18 +184,6 @@ HTML = f"""<!DOCTYPE html>
     .card-title {{ font-size: 1rem; font-weight: 700; margin-bottom: 10px; }}
     .card-text {{ font-size: .86rem; color: var(--muted); }}
 
-    .flow {{
-      margin-top: 60px; display: flex; background: var(--card-bg); border: 1px solid var(--border);
-      border-radius: var(--radius); overflow-x: auto;
-    }}
-    .flow-step {{ flex: 1; min-width: 180px; padding: 32px 24px; text-align: center; border-right: 1px solid var(--border); }}
-    .flow-step:last-child {{ border-right: none; }}
-
-    .met-row {{ display: flex; gap: 20px; margin-top: 48px; flex-wrap: wrap; }}
-    .met-box {{ flex: 1; min-width: 160px; background: rgba(77,195,255,0.05); border: 1px solid var(--border); border-radius: 12px; padding: 22px; text-align: center; }}
-    .met-val {{ font-size: 1.8rem; font-weight: 900; color: var(--cyan); }}
-    .met-lbl {{ font-size: .7rem; color: var(--muted); text-transform: uppercase; margin-top: 4px; }}
-
     /* TEAM */
     #equipe {{ text-align: center; }}
     .team-grid {{ display: flex; flex-wrap: wrap; justify-content: center; gap: 28px; margin-top: 52px; }}
@@ -223,12 +217,12 @@ HTML = f"""<!DOCTYPE html>
     <li><a href="#mvv">Propósito</a></li>
     <li><a href="#equipe">Equipe</a></li>
   </ul>
-  <a href="http://localhost:8501" class="nav-cta" target="_blank">🚀 ACESSAR DASHBOARD</a>
+  <a href="https://prio-nautilus.streamlit.app/" class="nav-cta" target="_blank">🚀 ACESSAR DASHBOARD</a>
 </nav>
 
 <section id="hero">
   <div class="video-container">
-    <video autoplay muted loop playsinline><source src="{video_path_filename}" type="video/mp4"></video>
+    <video autoplay muted loop playsinline><source src="{video_b64_uri}" type="video/mp4"></video>
     <div class="hero-overlay"></div>
   </div>
   <div class="hero-content">
@@ -236,7 +230,7 @@ HTML = f"""<!DOCTYPE html>
     <h1 class="aos">Inteligência Preditiva<br/>Nautilus</h1>
     <p class="hero-sub aos">Soluções integradas de manutenção técnica e gestão inteligente para garantir a máxima disponibilidade operacional de ativos offshore.</p>
     <div class="hero-buttons aos">
-      <a href="http://localhost:8501" class="btn-primary" target="_blank">🚀 ACESSAR DASHBOARD</a>
+      <a href="https://prio-nautilus.streamlit.app/" class="btn-primary" target="_blank">🚀 ACESSAR DASHBOARD</a>
       <a href="#sobre" class="btn-outline">Saiba Mais</a>
     </div>
   </div>
@@ -316,4 +310,4 @@ HTML = f"""<!DOCTYPE html>
 
 with open(out_path, "w", encoding="utf-8") as f:
     f.write(HTML)
-print("Gerado com sucesso.")
+print("Gerado com sucesso (Self-Contained Video Embedded).")
