@@ -1,0 +1,8 @@
+streamlit
+pandas
+pdfplumber
+altair
+plotly
+numpy
+reportlab
+openpyxl

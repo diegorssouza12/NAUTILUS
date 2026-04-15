@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>FPSO 3D — Nautilus</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #040d1a;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    overflow: hidden;
+    width: 100%; height: 100vh;
+  }
+  #rc { position: relative; width: 100%; height: 100vh; }
+  canvas { display: block; }
+
+  /* ── Floating TAG labels ── */
+  .tag-label {
+    position: absolute;
+    pointer-events: none;
+    transform: translate(-50%, -130%);
+    padding: 3px 9px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    white-space: nowrap;
+    backdrop-filter: blur(6px);
+    background: rgba(4,13,26,0.88);
+    border: 1px solid transparent;
+    display: none;
+  }
+  .tag-label::after {
+    content: '';
+    position: absolute;
+    bottom: -6px; left: 50%;
+    transform: translateX(-50%);
+    width: 1px; height: 6px;
+    background: currentColor; opacity: 0.5;
+  }
+  .tc { color: #ff6b6b; border-color: rgba(255,107,107,0.45); }
+  .tn { color: #51cf66; border-color: rgba(81,207,102,0.45); }
+  .ta { color: #ffd166; border-color: rgba(255,209,102,0.45); }
+
+  /* ── Info panel ── */
+  #panel {
+    position: absolute;
+    top: 14px; right: 14px;
+    width: 275px;
+    background: rgba(4,13,26,0.93);
+    border: 1px solid rgba(77,195,255,0.2);
+    border-radius: 12px;
+    color: #fff;
+    backdrop-filter: blur(14px);
+    display: none; z-index: 300;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(-6px); } to { opacity:1; transform:none; } }
+  #ph {
+    padding: 13px 14px 11px;
+    border-bottom: 1px solid rgba(77,195,255,0.15);
+    background: rgba(77,195,255,0.06);
+    display: flex; justify-content: space-between; align-items: flex-start;
+  }
+  #ptag { font-size: 19px; font-weight: 700; }
+  #pnome { font-size: 10px; opacity: .6; margin-top: 2px; max-width: 200px; }
+  #cbtn {
+    background: none; border: none; color: rgba(255,255,255,.4);
+    cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; flex-shrink:0;
+  }
+  #cbtn:hover { color:#fff; }
+  #pb { padding: 12px 14px 14px; }
+  #pstatus {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 10px; font-weight: 700; margin-bottom: 12px;
+  }
+  .mr {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 9px;
+    background: rgba(255,255,255,.04);
+    border-radius: 5px; margin-bottom: 5px; font-size: 10.5px;
+  }
+  .ml { color: rgba(160,196,232,.75); }
+  .mv { font-weight: 600; }
+  #pmot {
+    margin-top: 10px; font-size: 9.5px; color: rgba(160,196,232,.55);
+    line-height: 1.55;
+    border-top: 1px solid rgba(255,255,255,.07); padding-top: 9px;
+  }
+
+  /* ── Legend ── */
+  #leg {
+    position: absolute; bottom: 14px; left: 14px;
+    background: rgba(4,13,26,0.88);
+    border: 1px solid rgba(77,195,255,0.18);
+    border-radius: 10px; padding: 12px 15px;
+    color: #fff; z-index: 300;
+    backdrop-filter: blur(10px);
+    min-width: 195px;
+  }
+  #leg h3 { font-size: 9px; color: #4dc3ff; margin-bottom: 9px; text-transform: uppercase; letter-spacing: 1.6px; }
+  .lr { display: flex; align-items: center; gap: 8px; font-size: 9.5px; margin-bottom: 4px; color: #a0c4e8; }
+  .ld { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  #lf { margin-top: 9px; font-size: 8.5px; color: #3a5a72; border-top: 1px solid rgba(255,255,255,.07); padding-top: 8px; line-height: 1.5; }
+
+  /* ── Title ── */
+  #tbar { position: absolute; top: 14px; left: 14px; z-index: 300; pointer-events:none; }
+  #tbar h1 { font-size: 13px; color: #4dc3ff; font-weight: 700; text-shadow: 0 0 24px rgba(77,195,255,.55); }
+  #tbar p { font-size: 9.5px; color: #3a5a72; margin-top: 2px; }
+
+  /* ── Instructions ── */
+  #hint {
+    position: absolute; bottom: 14px; right: 14px; z-index: 300;
+    background: rgba(4,13,26,.72);
+    border: 1px solid rgba(77,195,255,.1);
+    border-radius: 6px; padding: 7px 12px;
+    font-size: 9.5px; color: #3a5a72;
+  }
+</style>
+</head>
+<body>
+<div id="rc">
+
+  <div id="tbar">
+    <h1>🌊 NAUTILUS — Mapa 3D FPSO</h1>
+    <p>P-77 · Bacia de Santos · Monitoramento RFID em Tempo Real</p>
+  </div>
+
+  <div id="panel">
+    <div id="ph">
+      <div><div id="ptag"></div><div id="pnome"></div></div>
+      <button id="cbtn">✕</button>
+    </div>
+    <div id="pb">
+      <div id="pstatus"></div>
+      <div class="mr"><span class="ml">📍 Localização</span><span class="mv" id="ml"></span></div>
+      <div class="mr"><span class="ml">📡 RFID</span><span class="mv" style="color:#51cf66">● ATIVO</span></div>
+      <div class="mr"><span class="ml">〜 Vibração</span><span class="mv" id="mv"></span></div>
+      <div class="mr"><span class="ml">🌡 Temperatura</span><span class="mv" id="mt"></span></div>
+      <div class="mr"><span class="ml">⏱ Próx. Manutenção</span><span class="mv" id="mm"></span></div>
+      <div id="pmot"></div>
+    </div>
+  </div>
+
+  <div id="leg">
+    <h3>Monitoramento RFID</h3>
+    <div class="lr"><div class="ld" style="background:#ff4444;box-shadow:0 0 7px #ff4444"></div>Crítico — Ação imediata</div>
+    <div class="lr"><div class="ld" style="background:#ffaa00;box-shadow:0 0 7px #ffaa00"></div>Atenção — Monitorar</div>
+    <div class="lr"><div class="ld" style="background:#44dd88;box-shadow:0 0 7px #44dd88"></div>Normal — Operacional</div>
+    <div id="lf">5 pontos RFID ativos<br>Última sincronização: agora</div>
+  </div>
+
+  <div id="hint">🖱 Arrastar · Scroll zoom · Clique no RFID para detalhes</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+// ═══════════════════════════════════════════════
+//  NAUTILUS · FPSO 3D VIEWER · Three.js r128
+// ═══════════════════════════════════════════════
+
+const EQUIP = [
+  {
+    tag:"CMP-01", nome:"Compressor de Gás Exportação", local:"Módulo 06",
+    status:"Crítico", cls:"tc", color:0xFF4444,
+    vib:"9,5 mm/s ⚠️", temp:"95°C ⚠️", man:"em 2 dias",
+    mot:"Desvio de vibração nas 3 últimas verificações. Kit Reparo (Selo/Rolamento) necessário.",
+    pos:[20,23,7]
+  },
+  {
+    tag:"TC-01", nome:"Trocador de Calor Placas", local:"Módulo 03",
+    status:"Crítico", cls:"tc", color:0xFF4444,
+    vib:"1,2 mm/s", temp:"120°C ⚠️", man:"em 2 dias",
+    mot:"Desvio térmico severo detectado na carcaça. Fluidos de limpeza + gaxetas internas.",
+    pos:[2,19,-7]
+  },
+  {
+    tag:"BMB-01", nome:"Bomba de Injeção de Água", local:"Módulo 04",
+    status:"Normal", cls:"tn", color:0x44DD88,
+    vib:"2,8 mm/s", temp:"55°C", man:"em 50 dias",
+    mot:"Ciclo de calibração pendente neste bimestre. Inspeção preventiva de rotina.",
+    pos:[2,19,7]
+  },
+  {
+    tag:"SEP-01", nome:"Separador Trifásico", local:"Planta de Processo",
+    status:"Normal", cls:"tn", color:0x44DD88,
+    vib:"0,5 mm/s", temp:"60°C", man:"em 50 dias",
+    mot:"Parâmetros dentro do envelope operacional. Próxima inspeção regular programada.",
+    pos:[54,23,0]
+  },
+  {
+    tag:"VAL-01", nome:"Válvula Submarina (SDV)", local:"Manifold Norte",
+    status:"Normal", cls:"tn", color:0x44DD88,
+    vib:"0,1 mm/s", temp:"15°C", man:"em 50 dias",
+    mot:"Atuador monitorado via RFID. Inspeção Block & Bleed no próximo ciclo programado.",
+    pos:[88,11,0]
+  },
+];
+
+// ── Renderer / Scene / Camera ────────────────────────────────────────────────
+const container = document.getElementById('rc');
+const W = container.clientWidth, H = container.clientHeight;
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x040d1a);
+scene.fog = new THREE.Fog(0x040d1a, 300, 700);
+
+const camera = new THREE.PerspectiveCamera(44, W/H, 0.5, 1200);
+camera.position.set(-15, 95, 200);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 55;
+controls.maxDistance = 400;
+controls.maxPolarAngle = Math.PI / 2.05;
+controls.target.set(0,8,0);
+controls.update();
+
+// ── Lights ──────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0x2244AA, 0.75));
+const sun = new THREE.DirectionalLight(0xFFEED8, 1.3);
+sun.position.set(90,140,70);
+sun.castShadow = true;
+sun.shadow.mapSize.width = sun.shadow.mapSize.height = 2048;
+Object.assign(sun.shadow.camera,{near:1,far:600,left:-180,right:180,top:180,bottom:-180});
+scene.add(sun);
+scene.add(Object.assign(new THREE.DirectionalLight(0x446688, 0.45), {position: new THREE.Vector3(-60,40,-40)}));
+
+// ── Material helpers ─────────────────────────────────────────────────────────
+const sm = (c, r=0.82, m=0.12) => new THREE.MeshStandardMaterial({color:c, roughness:r, metalness:m});
+const bm = (c, op=1) => new THREE.MeshBasicMaterial({color:c, transparent:op<1, opacity:op, side:THREE.DoubleSide});
+const gm = (c, ei=1.2) => new THREE.MeshStandardMaterial({color:c, emissive:c, emissiveIntensity:ei, roughness:0.25});
+
+// ── OCEAN ───────────────────────────────────────────────────────────────────
+const oceanGeo = new THREE.PlaneGeometry(1400,1400,70,70);
+const ocean    = new THREE.Mesh(oceanGeo, new THREE.MeshStandardMaterial({
+  color:0x0A2846, roughness:0.25, metalness:0.15, transparent:true, opacity:0.9, side:THREE.DoubleSide
+}));
+ocean.rotation.x = -Math.PI/2;
+scene.add(ocean);
+
+// Deep base
+scene.add(Object.assign(
+  new THREE.Mesh(new THREE.PlaneGeometry(1400,1400), sm(0x040d1a,0.1,0)),
+  {rotation: new THREE.Euler(-Math.PI/2,0,0), position: new THREE.Vector3(0,-0.8,0)}
+));
+
+// Horizon glow
+const skyGeo = new THREE.SphereGeometry(680, 32, 16);
+const skyMat = new THREE.MeshBasicMaterial({
+  color:0x050f20, side: THREE.BackSide,
+  fog: false
+});
+scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+// ── HULL ────────────────────────────────────────────────────────────────────
+const hullMat  = sm(0x162130, 0.9, 0.12);
+const stripeMat= sm(0x1A5C96, 0.8, 0.15);
+const redMat   = sm(0xAA1800, 0.85, 0.1);
+const deckMat  = sm(0x2E3D4A, 0.9, 0.06);
+
+// Main body
+const hull = new THREE.Mesh(new THREE.BoxGeometry(210,17,32), hullMat);
+hull.position.set(0,-8.5,0);
+hull.castShadow = hull.receiveShadow = true;
+scene.add(hull);
+
+// Bow tapered section
+const bowBox = new THREE.Mesh(new THREE.BoxGeometry(28,17,22), hullMat);
+bowBox.position.set(119,-8.5,0);
+scene.add(bowBox);
+
+// Bow wedge
+const bowWedge = new THREE.Mesh(
+  new THREE.ConeGeometry(11,18,4,1), hullMat
+);
+bowWedge.rotation.z = -Math.PI/2;
+bowWedge.rotation.y = Math.PI/4;
+bowWedge.position.set(134,-8.5,0);
+scene.add(bowWedge);
+
+// Stern
+const sternBox = new THREE.Mesh(new THREE.BoxGeometry(18,17,28), hullMat);
+sternBox.position.set(-114,-8.5,0);
+scene.add(sternBox);
+
+// Livery stripe
+const hstripe = new THREE.Mesh(new THREE.BoxGeometry(235,4,32.5), stripeMat);
+hstripe.position.set(-3,-3.5,0);
+scene.add(hstripe);
+
+// Waterline red (anti-fouling)
+const wl = new THREE.Mesh(new THREE.BoxGeometry(235,2.5,32.5), redMat);
+wl.position.set(-3,-0.5,0);
+scene.add(wl);
+
+// Main deck
+const deck = new THREE.Mesh(new THREE.BoxGeometry(240,2.5,38), deckMat);
+deck.position.set(-3,1.75,0);
+deck.receiveShadow = true;
+scene.add(deck);
+
+// Side rails
+for(const z of [-19,19]) {
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(238,2.2,0.9), sm(0x667788,0.7,0.4));
+  rail.position.set(-3,3.5,z);
+  scene.add(rail);
+}
+
+// ── TURRET (BOW) ────────────────────────────────────────────────────────────
+const turretBase = new THREE.Mesh(new THREE.CylinderGeometry(10,13,15,20), sm(0xBB3D00,0.8,0.25));
+turretBase.position.set(106,5.5,0);
+scene.add(turretBase);
+const turretTop  = new THREE.Mesh(new THREE.CylinderGeometry(8,10,6,20), sm(0xEE6600,0.75,0.3));
+turretTop.position.set(106,14,0);
+scene.add(turretTop);
+
+// Risers
+for(let i=0;i<6;i++) {
+  const a=(i/6)*Math.PI*2;
+  const r = new THREE.Mesh(new THREE.CylinderGeometry(0.75,0.75,70,7), sm(0xCC3300,0.7,0.35));
+  r.position.set(106+Math.cos(a)*6,-30,Math.sin(a)*6);
+  scene.add(r);
+}
+
+// ── PROCESS MODULES ─────────────────────────────────────────────────────────
+function box(x,y,z,w,h,d,mat,cast=true) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+  m.position.set(x, y+h/2+3, z);
+  if(cast) { m.castShadow=true; m.receiveShadow=true; }
+  scene.add(m); return m;
+}
+function cyl(x,y,z,rt,rb,h,seg,mat) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg), mat);
+  m.position.set(x,y,z);
+  m.castShadow=true;
+  scene.add(m); return m;
+}
+
+// Separator train (large)
+box(58,0,0,38,13,24,sm(0x967220,0.82,0.22));
+// Separator horizontal pressure vessels
+for(let i=0;i<3;i++) {
+  const tv = new THREE.Mesh(new THREE.CylinderGeometry(4,4,24,14), sm(0xC89030,0.7,0.32));
+  tv.rotation.z = Math.PI/2;
+  tv.position.set(54+i*3.5, 15.5, (i-1)*8.5);
+  scene.add(tv);
+  // end caps
+  for(const s of [-1,1]) {
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(4,14,10,0,Math.PI*2,0,Math.PI/2), sm(0xC89030,0.7,0.32));
+    cap.rotation.z = s>0 ? Math.PI/2 : -Math.PI/2;
+    cap.position.set(54+i*3.5+s*12, 15.5, (i-1)*8.5);
+    scene.add(cap);
+  }
+}
+
+// Compressor module (CMP-01 zone)
+box(18,0,5,25,17,20,sm(0x8A6A18,0.82,0.2));
+box(18,17,5,21,5,16,sm(0x606060,0.7,0.3));  // ventilation top
+// Cooler unit on side
+box(18,0,-9,8,7,8,sm(0x707070,0.85,0.3));
+
+// Utilities (BMB-01 + TC-01 zone)
+box(0,0,0,20,11,22,sm(0x7A5E12,0.82,0.18));
+
+// Power generation
+box(-22,0,-5,16,13,15,sm(0x654E0E,0.84,0.2));
+box(-22,0,9,11,11,12,sm(0x574008,0.85,0.18));
+
+// Stacks from power gen
+for(let i=0;i<2;i++) {
+  cyl(-18+i*6, 26, -1+i*14, 1.3, 2, 22, 8, sm(0x888888,0.65,0.5));
+  // red band top
+  cyl(-18+i*6, 35, -1+i*14, 1.4, 1.4, 1, 8, redMat);
+}
+
+// ── PIPING RACKS ───────────────────────────────────────────────────────────
+const postMat = sm(0x8899AA,0.6,0.5);
+for(let x=-40;x<=80;x+=20) {
+  for(const zp of [-15,15]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.9,7,0.9), postMat);
+    post.position.set(x,8.5,zp);
+    scene.add(post);
+  }
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(1,1,32), postMat);
+  beam.position.set(x,13,0);
+  scene.add(beam);
+}
+// Pipes on rack
+const pipeColors = [0xCCCCCC,0xCC4400,0xCCAA00,0x4488CC,0x44AAAA];
+pipeColors.forEach((c,i) => {
+  const pg = new THREE.CylinderGeometry(0.55,0.55,140,8);
+  const pm = new THREE.Mesh(pg, sm(c,0.6,0.45));
+  pm.rotation.z = Math.PI/2;
+  pm.position.set(25,12.8+i*1.3,-14+i*1.2);
+  scene.add(pm);
+});
+
+// ── ACCOMMODATIONS (STERN) ──────────────────────────────────────────────────
+const accomMat = sm(0xCCCCBB,0.72,0.06);
+const accom = new THREE.Mesh(new THREE.BoxGeometry(38,36,30), accomMat);
+accom.position.set(-73,21,0);
+accom.castShadow = true;
+scene.add(accom);
+// Blue stripe livery
+const acBand = new THREE.Mesh(new THREE.BoxGeometry(38.5,4,30.5), stripeMat);
+acBand.position.set(-73,7.5,0);
+scene.add(acBand);
+// Windows
+const winMat = new THREE.MeshStandardMaterial({color:0x88CCFF, emissive:0x336699, emissiveIntensity:0.6, roughness:0.5});
+for(let fl=0;fl<4;fl++) for(let w=0;w<5;w++) {
+  const win = new THREE.Mesh(new THREE.BoxGeometry(0.5,2.8,3.2), winMat);
+  win.position.set(-54.3, 10+fl*8, -10+w*5.1);
+  scene.add(win);
+}
+// Floor balcony lines
+for(let fl=0;fl<4;fl++) {
+  const bal = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.8,30), sm(0x667788,0.65,0.5));
+  bal.position.set(-54.5, 7.5+fl*8, 0);
+  scene.add(bal);
+}
+
+// ── BRIDGE / WHEELHOUSE ────────────────────────────────────────────────────
+const bridge = new THREE.Mesh(new THREE.BoxGeometry(15,6,26), accomMat);
+bridge.position.set(-73,42,0);
+scene.add(bridge);
+
+// ── HELIDECK ────────────────────────────────────────────────────────────────
+// Legs
+const hdMat = sm(0x99AAAA,0.6,0.5);
+for(const [dx,dz] of [[-7,-7],[-7,7],[7,-7],[7,7]]) {
+  cyl(-73+dx,44.5,dz, 0.7,0.7,9, 7, hdMat);
+}
+const heli = new THREE.Mesh(new THREE.CylinderGeometry(16,16,1.4,8), sm(0x3E4E3E,0.9,0.08));
+heli.position.set(-73,50,0);
+scene.add(heli);
+// H mark
+const hm1 = new THREE.Mesh(new THREE.BoxGeometry(1,0.2,14), bm(0xFFFFFF));
+hm1.position.set(-76,51.2,0); scene.add(hm1);
+const hm2 = hm1.clone(); hm2.position.x=-70; scene.add(hm2);
+const hm3 = new THREE.Mesh(new THREE.BoxGeometry(7.5,0.2,1), bm(0xFFFFFF));
+hm3.position.set(-73,51.2,0); scene.add(hm3);
+// Circle
+const hdCirc = new THREE.Mesh(new THREE.RingGeometry(13,14.5,36), bm(0xFFFF44));
+hdCirc.rotation.x=-Math.PI/2; hdCirc.position.set(-73,51.3,0);
+scene.add(hdCirc);
+
+// ── MAST + NAV LIGHTS ───────────────────────────────────────────────────────
+cyl(-73,68,0, 0.45,0.45,36, 6, sm(0xAAAAAA,0.5,0.6));
+// top white
+scene.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(1.4,10,10), gm(0xFFFF99,2.5)), {position:new THREE.Vector3(-73,87,0)}));
+// nav lights
+scene.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(1.1,10,10), gm(0x00FF44,2.5)), {position:new THREE.Vector3(128,9,17)}));
+scene.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(1.1,10,10), gm(0xFF2200,2.5)), {position:new THREE.Vector3(128,9,-17)}));
+
+// ── FLARE TOWER ────────────────────────────────────────────────────────────
+const fpx=-108, fpz=0;
+for(const [dx,dz] of [[-5,-5],[-5,5],[5,-5],[5,5]]) {
+  cyl(fpx+dx,31,fpz+dz, 0.65,1.1,56, 7, sm(0x999999,0.55,0.55));
+}
+cyl(fpx,31,fpz, 1.7,2.8,58, 10, sm(0xAAAAAA,0.5,0.55));
+// Boom
+const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.75,0.75,38,8), sm(0x999999,0.55,0.55));
+boom.rotation.set(0,Math.PI/5,-Math.PI/5);
+boom.position.set(fpx+10,60,fpz+14);
+scene.add(boom);
+// Flare tip
+const flareMat = new THREE.MeshStandardMaterial({color:0xFF6600, emissive:0xFF4400, emissiveIntensity:1.8, roughness:0.25});
+const flareTip = new THREE.Mesh(new THREE.SphereGeometry(2.8,12,12), flareMat);
+flareTip.position.set(fpx+22,70,fpz+26);
+scene.add(flareTip);
+const flPL = new THREE.PointLight(0xFF8800, 4, 100, 2);
+flPL.position.copy(flareTip.position);
+scene.add(flPL);
+
+// ── CRANE ───────────────────────────────────────────────────────────────────
+cyl(-35,9.5,19, 4.5,5.5,9, 12, sm(0xEE8800,0.72,0.28));
+const craneBoom = new THREE.Mesh(new THREE.CylinderGeometry(0.9,1.4,48,9), sm(0xFFAA00,0.7,0.3));
+craneBoom.position.set(-26.5,32,19);
+craneBoom.rotation.z = Math.PI/3.2;
+scene.add(craneBoom);
+
+// ── MOORING LINES ───────────────────────────────────────────────────────────
+for(let i=0;i<6;i++) {
+  const a=(i/6)*Math.PI*2;
+  const ml = new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,90,5), sm(0x555544,0.9,0.1));
+  ml.position.set(106+Math.cos(a)*7,-35,Math.sin(a)*7);
+  ml.rotation.x = 0.15+Math.random()*0.25;
+  ml.rotation.z = (Math.random()-0.5)*0.4;
+  scene.add(ml);
+}
+
+// ── RFID MARKERS ────────────────────────────────────────────────────────────
+const rfidGroups=[], pulseData=[], orbitData=[], labelEls=[];
+
+EQUIP.forEach((eq,idx) => {
+  const g = new THREE.Group();
+  g.position.set(...eq.pos);
+  g.userData = eq;
+
+  // Core sphere
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(2.2,20,20),
+    new THREE.MeshStandardMaterial({color:eq.color, emissive:eq.color, emissiveIntensity:1.6, roughness:0.2, metalness:0.3})
+  );
+  g.add(core);
+
+  // Point light glow
+  const pl = new THREE.PointLight(eq.color, 1.8, 22, 2);
+  g.add(pl);
+
+  // Antenna
+  const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,5,5), sm(0xCCCCCC,0.5,0.8));
+  ant.position.y=-4;
+  g.add(ant);
+  const antBall = new THREE.Mesh(new THREE.SphereGeometry(0.4,8,8), sm(0xFFFFFF,0.4,0.9));
+  antBall.position.y=-6.5;
+  g.add(antBall);
+
+  // Pulse rings ×2
+  const mk1 = new THREE.Mesh(new THREE.RingGeometry(2.8,3.6,36), bm(eq.color,0.8));
+  mk1.rotation.x=-Math.PI/2; mk1.position.y=-1.5;
+  g.add(mk1);
+  const mk2 = new THREE.Mesh(new THREE.RingGeometry(2.8,3.6,36), bm(eq.color,0.6));
+  mk2.rotation.x=-Math.PI/2; mk2.position.y=-1.5;
+  g.add(mk2);
+
+  const spd = eq.status==='Crítico' ? 2.8 : 0.85;
+  pulseData.push({mk1,mk2, ph:idx*1.3, spd, glow:pl});
+
+  // Orbiting dot
+  const od = new THREE.Mesh(new THREE.SphereGeometry(0.5,8,8), bm(eq.color));
+  g.add(od);
+  orbitData.push({od, ph:idx*0.9, spd:spd*0.55, r:5.5});
+
+  rfidGroups.push(g);
+  scene.add(g);
+
+  // HTML label
+  const lbl = document.createElement('div');
+  lbl.className = `tag-label ${eq.cls}`;
+  lbl.textContent = eq.tag;
+  container.appendChild(lbl);
+  labelEls.push(lbl);
+});
+
+// ── RAYCASTER ───────────────────────────────────────────────────────────────
+const ray=new THREE.Raycaster(), mouse=new THREE.Vector2();
+
+renderer.domElement.addEventListener('click', e => {
+  const r=renderer.domElement.getBoundingClientRect();
+  mouse.x=((e.clientX-r.left)/r.width)*2-1;
+  mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(mouse,camera);
+  const targets=rfidGroups.map(g=>g.children[0]);
+  const hits=ray.intersectObjects(targets,false);
+  if(hits.length>0) showPanel(hits[0].object.parent.userData);
+});
+document.getElementById('cbtn').addEventListener('click',()=>document.getElementById('panel').style.display='none');
+
+function showPanel(eq) {
+  const SC={Crítico:'#ff4444',Normal:'#44dd88',Atenção:'#ffaa00'};
+  const SE={Crítico:'🔴',Normal:'🟢',Atenção:'🟡'};
+  const c=SC[eq.status]||'#44dd88';
+  const p=document.getElementById('panel');
+  p.style.borderColor=c+'44';
+  Object.assign(document.getElementById('ptag').style,{color:c});
+  document.getElementById('ptag').textContent=eq.tag;
+  document.getElementById('pnome').textContent=eq.nome;
+  const st=document.getElementById('pstatus');
+  st.style.cssText=`background:${c}18;color:${c};border:1px solid ${c}44`;
+  st.textContent=`${SE[eq.status]} ${eq.status}`;
+  document.getElementById('ml').textContent=eq.local;
+  document.getElementById('mv').textContent=eq.vib;
+  document.getElementById('mt').textContent=eq.temp;
+  document.getElementById('mm').textContent=eq.man;
+  document.getElementById('pmot').textContent='📌 '+eq.mot;
+  p.style.display='block';
+}
+
+// ── LABEL PROJECTION ────────────────────────────────────────────────────────
+const pv=new THREE.Vector3();
+function updateLabels() {
+  rfidGroups.forEach((g,i) => {
+    pv.setFromMatrixPosition(g.matrixWorld);
+    pv.project(camera);
+    const x=(pv.x*0.5+0.5)*renderer.domElement.clientWidth;
+    const y=(-pv.y*0.5+0.5)*renderer.domElement.clientHeight;
+    labelEls[i].style.display = pv.z<1 ? 'block':'none';
+    labelEls[i].style.left=x+'px';
+    labelEls[i].style.top=(y-26)+'px';
+  });
+}
+
+// ── RESIZE ──────────────────────────────────────────────────────────────────
+window.addEventListener('resize',()=>{
+  const w=container.clientWidth, h=container.clientHeight;
+  camera.aspect=w/h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w,h);
+});
+
+// ── ANIMATION ───────────────────────────────────────────────────────────────
+const clock = new THREE.Clock();
+const oceanPos = oceanGeo.attributes.position;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t=clock.getElapsedTime();
+  controls.update();
+
+  // Ocean waves
+  for(let i=0;i<oceanPos.count;i++){
+    const ox=oceanPos.getX(i), oz=oceanPos.getZ(i);
+    oceanPos.setY(i, Math.sin(ox*0.03+t*0.55)*0.7 + Math.cos(oz*0.045+t*0.38)*0.45);
+  }
+  oceanPos.needsUpdate=true;
+  oceanGeo.computeVertexNormals();
+
+  // Flare animation
+  flareMat.emissiveIntensity = 1.5+Math.sin(t*3.8)*0.7;
+  flPL.intensity = 4+Math.sin(t*4.2)*2;
+  flareTip.scale.setScalar(1+Math.sin(t*5)*0.12);
+
+  // RFID pulse rings
+  pulseData.forEach((pd,i)=>{
+    // ring 1 expanding ping
+    const cy = (t*pd.spd+pd.ph)%(Math.PI*2)/(Math.PI*2);
+    pd.mk1.scale.setScalar(1+cy*4.5);
+    pd.mk1.material.opacity=(1-cy)*0.75;
+    // ring 2 offset
+    const cy2 = (t*pd.spd+pd.ph+Math.PI)%(Math.PI*2)/(Math.PI*2);
+    pd.mk2.scale.setScalar(1+cy2*4.5);
+    pd.mk2.material.opacity=(1-cy2)*0.5;
+    // glow pulse
+    pd.glow.intensity = (eq=>eq.status==='Crítico' ? 1.5+Math.abs(Math.sin(t*2.5))*1.5 : 1.2)(EQUIP[i]);
+    // beacon bob
+    rfidGroups[i].position.y = EQUIP[i].pos[1]+Math.sin(t*pd.spd*0.4+pd.ph)*0.6;
+  });
+
+  // Orbiting particles
+  orbitData.forEach(od=>{
+    const a=t*od.spd+od.ph;
+    od.od.position.set(Math.cos(a)*od.r, Math.sin(a*2)*1.8, Math.sin(a)*od.r);
+  });
+
+  updateLabels();
+  renderer.render(scene,camera);
+}
+animate();
+</script>
+</body>
+</html>
