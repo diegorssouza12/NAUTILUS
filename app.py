@@ -682,7 +682,7 @@ def render_assistente_llm(qa_list, perfil_key, titulo, descricao, placeholder):
 # ─────────────────────────────────────────────────────────────────────────────
 # FPSO 3D — carregamento do modelo FBX (via conversão OBJ)
 # ─────────────────────────────────────────────────────────────────────────────
-OBJ_PATH = r"c:\Users\DIEGO\Documents\PROJETO FLOTADOR\FPSO_converted_from_FBX.obj"
+OBJ_PATH = "FPSO_converted_from_FBX.obj"
 
 @st.cache_data(show_spinner="Carregando malha do modelo 3D (Importado de FBX)…")
 def _load_fpso_mesh():
